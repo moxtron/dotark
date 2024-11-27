@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import sys
+import shutil
+import logging
+import argparse
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+DOTARK = Path.home() / ".dotark"
+
+def check_folder(dir: Path = DOTARK) -> None:
+    """
+    create .dotark directory if it doesn't exist
+    :param dir: .dotark directory
+    :return: None
+    """
+    try:
+        DOTARK.mkdir(exist_ok=True)
+    except PermissionError as e:
+        logging.error(f"Can't create directory: {e}")
+def absolute_path(file) -> Path:
+    """
+    convert file path to absolute
+    raise an exception if not found
+
+    :args: file: str
+    :return: absolute path of arg_path
+    """
+    path = Path(file).absolute()
+
+    if not path.exists:
+        raise FileNotFoundError(f"dotfile not found: {file}")
+
+    return path
+
+def dot_name(file: str) -> str:
+    """
+    convert file to dotfile name
+    """
+    return f"dot-{file.lstrip(".")}"
+
+def move_and_link(src: Path, dest: Path = DOTARK) -> None:
+    """
+    move & rename, then link back to original name
+    :param src: source file
+    :param dest: destination directory
+    :return: None
+    """
+    if src.is_symlink():
+        logging.error(f"Is symlink already: {src}")
+        sys.exit(1)
+    else:
+        dot_dest = dest / dot_name(src.name)
+        shutil.move(src, dot_dest)
+        src.symlink_to(dot_dest)
+        logging.info(f"Successfully archived {src.name}")
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dotfile", help="dotfile to archive")
+    args = parser.parse_args()
+    try:
+        check_folder(DOTARK)
+        dotfile_path = absolute_path(args.dotfile)
+        move_and_link(dotfile_path, DOTARK)
+    except (PermissionError, OSError) as e:
+        logging.error(f"An error occurred: {e}")
+        sys.exit(3)
+if __name__ == "__main__":
+    main()
